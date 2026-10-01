@@ -1,0 +1,46 @@
+name: Verify macOS installer PR
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - runner: macos-15-intel
+          arch: x86_64
+        - runner: macos-15
+          arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        ref: d5906133a99a2c23bb147527a48333fbe6905206
+    - name: Check runner and script syntax
+      shell: /bin/bash {0}
+      run: |
+        set -euo pipefail
+        test "$(uname -m)" = "${{ matrix.arch }}"
+        /bin/bash -n scripts/install/install-mac.sh
+        /bin/bash -n scripts/test/test-mac-install-offline.sh
+        /bin/bash -n scripts/test/test-mac-install.sh
+    - name: Offline installer tests
+      run: /bin/bash scripts/test/test-mac-install-offline.sh
+    - name: Real installer smoke tests
+      run: /bin/bash scripts/test/test-mac-install.sh
+  build-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        ref: d5906133a99a2c23bb147527a48333fbe6905206
+        fetch-depth: 0
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+    - name: Build and unit tests
+      run: go run mage.go Build TestUnit
